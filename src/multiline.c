@@ -7,6 +7,8 @@
 
 static mrbc_context* s_cxt = NULL;
 
+void mrb_codedump_all(mrb_state*, struct RProc*);
+
 /* Guess if the user might want to enter more
  * or if he wants an evaluation of his code now
  * Taken from mruby-bin-mirb gem
@@ -139,6 +141,7 @@ int multiline_parse_run_source(mrb_state* mrb, const char* src, int print_level)
   int code_block_open = FALSE;
   int n;
   mrb_value result = mrb_nil_value();
+  unsigned int stack_keep = 0;
 
   parser = mrb_parser_new(mrb);
   parser->s = src;
@@ -157,10 +160,24 @@ int multiline_parse_run_source(mrb_state* mrb, const char* src, int print_level)
                    parser->error_buffer[0].message);
       mrb->exc = mrb_obj_ptr(mrb_exc_new(mrb, E_SYNTAX_ERROR, buf, n));
     } else {
-      n = mrb_generate_code(mrb, parser);
-      result = mrb_run(mrb,
-                       mrb_proc_new(mrb, mrb->irep[n]),
-                       mrb_top_self(mrb));
+      /* generate bytecode */
+      struct RProc *proc = mrb_generate_code(mrb, parser);
+      if (proc == NULL) {
+        fputs("codegen error\n", stderr);
+        mrb_parser_free(parser);
+        return 1;
+      }
+
+      if (print_level > 0) {
+        mrb_codedump_all(mrb, proc);
+      }
+      /* pass a proc for evaulation */
+      /* evaluate the bytecode */
+      result = mrb_context_run(mrb,
+                               proc,
+                               mrb_top_self(mrb),
+                               stack_keep);
+      stack_keep = proc->body.irep->nlocals;
     }
   }
   mrb_parser_free(parser);
