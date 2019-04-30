@@ -20,8 +20,8 @@ is_code_block_open(struct mrb_parser_state *parser)
 
   /* check for heredoc */
   if (parser->parsing_heredoc != NULL) return TRUE;
-  if (parser->heredoc_end_now) {
-    parser->heredoc_end_now = FALSE;
+  else if (parser->parsing_heredoc->cdr == NULL) {
+    // parser->heredoc_end_now = FALSE;
     return FALSE;
   }
 
